@@ -16,8 +16,6 @@ import { PaymentsConsole } from './pages/PaymentsConsole';
 import { ApprovalQueue } from './pages/ApprovalQueue';
 import { FinanceReport } from './pages/FinanceReport';
 import { ManualIntake } from './pages/ManualIntake';
-import { Login } from './pages/Login';
-import { AuthCallback } from './pages/AuthCallback';
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -33,20 +31,17 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected Route wrapper
+// Protected Route wrapper - useAuth handles redirect to login portal
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   
-  if (loading) {
+  // Show loading while checking auth - useAuth will redirect if no session
+  if (loading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
       </div>
     );
-  }
-  
-  if (!user) {
-    return <Navigate to="/login" replace />;
   }
   
   return <>{children}</>;
@@ -56,10 +51,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<Login />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      
       {/* Protected routes */}
       <Route
         path="/"
@@ -80,7 +71,7 @@ function AppRoutes() {
         <Route path="intake" element={<ManualIntake />} />
       </Route>
       
-      {/* Catch all */}
+      {/* Catch all - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

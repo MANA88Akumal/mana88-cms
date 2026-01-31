@@ -1,28 +1,32 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+const supabaseUrl = 'https://jmlxpcnkovxmadbygolp.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImptbHhwY25rb3Z4bWFkYnlnb2xwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg1ODY0NDIsImV4cCI6MjA4NDE2MjQ0Mn0.vwLJMJbHVofBu7btXmUYisB5RtEWkpyDMCrQSzfO0xc'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    storageKey: 'mana88-cms-auth',
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'implicit'
+    persistSession: true,
+    detectSessionInUrl: false,
+    flowType: 'pkce'
   }
 })
 
-// Debug helper
-if (typeof window !== 'undefined') {
-  (window as any).supabase = supabase;
-  (window as any).clearAuth = () => {
-    localStorage.clear()
-    sessionStorage.clear()
-    window.location.href = '/login'
+export function getSharedAuthCookie() {
+  const cookies = document.cookie.split(';')
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=')
+    if (name === 'mana88_session' && value) {
+      try {
+        return JSON.parse(decodeURIComponent(value))
+      } catch {
+        return null
+      }
+    }
   }
+  return null
+}
+
+export function clearSharedAuthCookie() {
+  document.cookie = `mana88_session=; path=/; domain=.manaakumal.com; max-age=0; secure; samesite=lax`
 }

@@ -57,7 +57,7 @@ function NavItem({
 }
 
 export function AppLayout() {
-  const { staff, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -76,12 +76,11 @@ export function AppLayout() {
         >
           {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
-        <div className="ml-4 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">M</span>
-          </div>
-          <span className="font-semibold text-gray-900">MANA88 CMS</span>
-        </div>
+        <img 
+          src="https://manaakumal.com/wp-content/uploads/2025/06/logo-main-black.png" 
+          alt="MANA88" 
+          className="ml-4 h-8 w-auto"
+        />
       </header>
 
       {/* Mobile sidebar overlay */}
@@ -101,14 +100,12 @@ export function AppLayout() {
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-4 border-b border-gray-200">
-          <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center">
-            <span className="text-white font-bold">M</span>
-          </div>
-          <div>
-            <h1 className="font-bold text-gray-900">MANA88</h1>
-            <p className="text-xs text-gray-500">Case Management</p>
-          </div>
+        <div className="h-16 flex items-center px-4 border-b border-gray-200">
+          <img 
+            src="https://manaakumal.com/wp-content/uploads/2025/06/logo-main-black.png" 
+            alt="MANA88" 
+            className="h-8 w-auto"
+          />
         </div>
 
         {/* Navigation */}
@@ -130,10 +127,10 @@ export function AppLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">
-                {staff?.full_name || 'User'}
+                {profile?.full_name || 'User'}
               </p>
               <p className="text-xs text-gray-500 truncate">
-                {staff?.email}
+                {profile?.email}
               </p>
             </div>
           </div>
