@@ -85,15 +85,13 @@ function PaymentForm({
 
     try {
       await recordPayment.mutateAsync({
-        caseId,
-        paymentDate: formData.paymentDate,
-        amountMxn: amount,
-        paymentType: formData.paymentType,
-        appliedToInstallment: formData.appliedToInstallment ? parseInt(formData.appliedToInstallment) : undefined,
+        case_id: caseId,
+        payment_date: formData.paymentDate,
+        amount_mxn: amount,
+        payment_type: formData.paymentType,
         channel: formData.channel || undefined,
-        referenceNumber: formData.referenceNumber || undefined,
+        reference: formData.referenceNumber || undefined,
         notes: formData.notes || undefined,
-        proofFile: proofFile || undefined,
       });
 
       // Reset form

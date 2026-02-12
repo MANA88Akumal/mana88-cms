@@ -4,11 +4,11 @@ import { useDropzone } from 'react-dropzone';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { 
-  Upload, FileSpreadsheet, AlertCircle, CheckCircle2, 
+  Upload, FileSpreadsheet, AlertCircle, 
   RefreshCw, Download, X, ChevronDown, ChevronUp,
   FileText, Users, DollarSign, Calendar
 } from 'lucide-react';
-import { formatMXN, formatDate } from '../lib/utils';
+import { formatMXN } from '../lib/utils';
 
 type ImportType = 'cases' | 'payments' | 'units' | 'clients';
 

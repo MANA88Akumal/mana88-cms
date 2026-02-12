@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useManzanas, useLotsByManzana, useCreateCase } from '../hooks/useCases';
 import { formatMXN, parseAmount } from '../lib/utils';
-import type { ScheduleItem, PaymentType } from '../types';
+import type { ScheduleItem } from '../types';
 
 // Payment Plan Presets
 const PLAN_PRESETS = {
@@ -18,7 +18,7 @@ type PlanKey = keyof typeof PLAN_PRESETS;
 
 export function CaseNew() {
   const navigate = useNavigate();
-  const { data: manzanas, isLoading: manzanasLoading } = useManzanas();
+  const { data: manzanas } = useManzanas();
   const createCase = useCreateCase();
 
   // Form state

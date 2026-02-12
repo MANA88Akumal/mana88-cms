@@ -2,8 +2,8 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useCases } from '../hooks/useCases';
-import { formatMXN, formatMXNCompact, formatDate, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
-import type { CaseSummary, CaseStatus } from '../types';
+import { formatMXN, formatMXNCompact, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
+import type { CaseStatus } from '../types';
 
 // Stat Card
 function StatCard({ 
@@ -47,7 +47,6 @@ export function FinanceReport() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<CaseStatus | ''>('');
   const [manzanaFilter, setManzanaFilter] = useState('');
-  const [dateRange, setDateRange] = useState({ from: '', to: '' });
 
   // Get unique manzanas
   const manzanas = useMemo(() => {

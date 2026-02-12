@@ -1,7 +1,7 @@
 // Dashboard Page - Overview with Stats and Recent Activity
 import { Link } from 'react-router-dom';
 import { useCases } from '../hooks/useCases';
-import { formatMXN, formatMXNCompact, formatRelativeTime, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
+import { formatMXN, formatMXNCompact, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
 import type { CaseSummary, CaseStatus } from '../types';
 
 // Stat Card Component

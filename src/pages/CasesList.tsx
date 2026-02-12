@@ -1,8 +1,8 @@
 // Cases List Page - Browse and search all cases
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useCases, useManzanas } from '../hooks/useCases';
-import { formatMXN, formatMXNCompact, formatDate, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
+import { formatMXN, formatMXNCompact, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
 import type { CaseSummary, CaseStatus } from '../types';
 
 // Status Badge
