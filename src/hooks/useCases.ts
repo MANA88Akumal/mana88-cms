@@ -1,6 +1,17 @@
 // Case-related React Query hooks
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
+import type {
+  CaseStatus,
+  CaseRecord,
+  LotRecord,
+  ClientRecord,
+  BrokerRecord,
+  CreateCaseInput,
+} from '../types';
+
+// Re-export types for backwards compatibility
+export type { CaseStatus, CaseRecord, LotRecord, ClientRecord, BrokerRecord };
 
 // Query keys for cache management
 export const caseKeys = {
@@ -10,97 +21,6 @@ export const caseKeys = {
   details: () => [...caseKeys.all, 'detail'] as const,
   detail: (id: string) => [...caseKeys.details(), id] as const,
 };
-
-// Types
-export type CaseStatus = 'pending' | 'active' | 'contract_generated' | 'executed' | 'cancelled' | 'on_hold';
-
-export interface CaseRecord {
-  id: string;
-  case_id: string;
-  lot_id: number | null;
-  client_id: string | null;
-  broker_id: string | null;
-  list_price_mxn: number | null;
-  sale_price_mxn: number;
-  discount_pct: number | null;
-  plan_name: string | null;
-  reservation_mxn: number | null;
-  down_payment_pct: number | null;
-  down_payment_mxn: number | null;
-  monthly_count: number | null;
-  monthly_amount_mxn: number | null;
-  final_payment_pct: number | null;
-  final_payment_mxn: number | null;
-  broker_commission_pct: number | null;
-  broker_commission_mxn: number | null;
-  status: CaseStatus;
-  offer_doc_url: string | null;
-  contract_pdf_url: string | null;
-  folder_url: string | null;
-  offer_date: string | null;
-  executed_at: string | null;
-  delivery_date: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface LotRecord {
-  id: number;
-  lot_number: string;
-  lot: string; // alias for lot_number
-  manzana: string;
-  phase: number;
-  area_m2: number;
-  status: string;
-  full_retail_value_mxn: number | null;
-  sale_price_mxn: number | null;
-}
-
-export interface ClientRecord {
-  id: string;
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  full_name_secondary: string | null;
-  is_llc: boolean;
-  llc_name: string | null;
-}
-
-export interface BrokerRecord {
-  id: string;
-  full_name: string;
-  agency: string | null;
-  email: string | null;
-  phone: string | null;
-}
-
-export interface PaymentScheduleRecord {
-  id: string;
-  case_id: string;
-  schedule_index: number;
-  payment_type: string;
-  label: string | null;
-  amount_mxn: number;
-  due_date: string;
-  status: string;
-  paid_amount_mxn: number;
-  paid_date: string | null;
-}
-
-export interface PaymentRecord {
-  id: string;
-  case_id: string;
-  payment_date: string;
-  amount_mxn: number;
-  payment_type: string;
-  channel: string | null;
-  reference: string | null;
-  proof_url_client: string | null;
-  receipt_number: string | null;
-  notes: string | null;
-  created_at: string;
-}
 
 // ============================================
 // QUERIES
@@ -114,7 +34,7 @@ interface UseCasesOptions {
 
 export function useCases(options: UseCasesOptions = {}) {
   const { status, manzana, search } = options;
-  
+
   return useQuery({
     queryKey: caseKeys.list({ status, manzana, search }),
     queryFn: async () => {
@@ -127,20 +47,17 @@ export function useCases(options: UseCasesOptions = {}) {
           broker:brokers!left(id, full_name, agency, email)
         `)
         .order('updated_at', { ascending: false });
-      
-      // Apply filters
+
       if (status) {
         query = query.eq('status', status);
       }
       if (search) {
         query = query.or(`case_id.ilike.%${search}%`);
       }
-      
+
       const { data, error } = await query;
-      
       if (error) throw error;
-      
-      // Filter by manzana if provided (need to filter after join)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let filtered = data || [] as any[];
       if (manzana) {
@@ -150,13 +67,13 @@ export function useCases(options: UseCasesOptions = {}) {
       if (search) {
         const searchLower = search.toLowerCase();
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        filtered = filtered.filter((c: any) => 
+        filtered = filtered.filter((c: any) =>
           c.case_id?.toLowerCase().includes(searchLower) ||
           c.client?.full_name?.toLowerCase().includes(searchLower) ||
           c.lot?.lot_number?.toLowerCase().includes(searchLower)
         );
       }
-      
+
       return filtered;
     },
   });
@@ -176,23 +93,21 @@ export function useCase(caseId: string) {
         `)
         .eq('case_id', caseId)
         .single();
-      
+
       if (error) throw error;
-      
-      // Fetch payment schedule
+
       const { data: schedule } = await supabase
         .from('payment_schedule')
         .select('*')
         .eq('case_id', data.id)
         .order('schedule_index');
-      
-      // Fetch payments
+
       const { data: payments } = await supabase
         .from('cms_payments')
         .select('*')
         .eq('case_id', data.id)
         .order('payment_date', { ascending: false });
-      
+
       return {
         ...data,
         schedule: schedule || [],
@@ -203,7 +118,6 @@ export function useCase(caseId: string) {
   });
 }
 
-// Get available lots (not sold)
 export function useAvailableLots(manzana?: string) {
   return useQuery({
     queryKey: ['lots', 'available', manzana],
@@ -214,20 +128,18 @@ export function useAvailableLots(manzana?: string) {
         .eq('status', 'Available')
         .order('manzana')
         .order('lot_number');
-      
+
       if (manzana) {
         query = query.eq('manzana', manzana);
       }
-      
+
       const { data, error } = await query;
       if (error) throw error;
-      // Map lot_number to lot for backwards compatibility
       return (data || []).map(d => ({ ...d, lot: d.lot_number })) as LotRecord[];
     },
   });
 }
 
-// Get all manzanas
 export function useManzanas() {
   return useQuery({
     queryKey: ['manzanas'],
@@ -236,17 +148,14 @@ export function useManzanas() {
         .from('lots')
         .select('manzana')
         .order('manzana');
-      
+
       if (error) throw error;
-      
-      // Get unique manzanas
       const unique = [...new Set(data?.map(d => d.manzana) || [])];
       return unique;
     },
   });
 }
 
-// Get pending approvals count
 export function usePendingApprovalsCount() {
   return useQuery({
     queryKey: ['approvals', 'pending', 'count'],
@@ -255,7 +164,7 @@ export function usePendingApprovalsCount() {
         .from('approvals')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending');
-      
+
       if (error) throw error;
       return count || 0;
     },
@@ -266,54 +175,9 @@ export function usePendingApprovalsCount() {
 // MUTATIONS
 // ============================================
 
-interface CreateCaseInput {
-  // Property - can pass lot_id directly or manzana+lot strings
-  lot_id?: number;
-  manzana?: string;
-  lot?: string;
-  
-  // Client - flat fields
-  buyer_name: string;
-  buyer_name_2?: string;
-  buyer_email?: string;
-  buyer_phone?: string;
-  
-  // Pricing
-  list_price_mxn?: number;
-  sale_price_mxn: number;
-  
-  // Plan
-  plan_name: string;
-  down_payment_pct?: number;
-  down_payment_mxn?: number;
-  monthly_count?: number;
-  monthly_amount_mxn?: number;
-  final_payment_pct?: number;
-  final_payment_mxn?: number;
-  
-  // Broker
-  broker_name?: string;
-  broker_agency?: string;
-  broker_email?: string;
-  broker_phone?: string;
-  broker_commission_pct?: number;
-  
-  // Schedule
-  schedule?: Array<{
-    type: string;
-    label: string;
-    amount: number;
-    date: string;
-    dateCalculated?: boolean;
-    dateCalculatedOn?: string;
-  }>;
-  
-  notes?: string;
-}
-
 export function useCreateCase() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (input: CreateCaseInput) => {
       // 1. Resolve lot_id
@@ -325,29 +189,24 @@ export function useCreateCase() {
           .eq('manzana', input.manzana)
           .eq('lot_number', input.lot)
           .single();
-        
-        if (lotData) {
-          lotId = lotData.id;
-        }
+
+        if (lotData) lotId = lotData.id;
       }
-      
+
       // 2. Create or find client
       let clientId: string | null = null;
       if (input.buyer_name) {
         if (input.buyer_email) {
-          const { data: existingClient } = await supabase
+          const { data: existing } = await supabase
             .from('clients')
             .select('id')
             .eq('email', input.buyer_email)
             .single();
-          
-          if (existingClient) {
-            clientId = existingClient.id;
-          }
+          if (existing) clientId = existing.id;
         }
-        
+
         if (!clientId) {
-          const { data: newClient, error: clientError } = await supabase
+          const { data: newClient, error } = await supabase
             .from('clients')
             .insert({
               full_name: input.buyer_name,
@@ -357,29 +216,25 @@ export function useCreateCase() {
             })
             .select('id')
             .single();
-          
-          if (clientError) throw clientError;
+          if (error) throw error;
           clientId = newClient.id;
         }
       }
-      
-      // 3. Create or find broker if provided
+
+      // 3. Create or find broker
       let brokerId: string | null = null;
       if (input.broker_name) {
         if (input.broker_email) {
-          const { data: existingBroker } = await supabase
+          const { data: existing } = await supabase
             .from('brokers')
             .select('id')
             .eq('email', input.broker_email)
             .single();
-          
-          if (existingBroker) {
-            brokerId = existingBroker.id;
-          }
+          if (existing) brokerId = existing.id;
         }
-        
+
         if (!brokerId) {
-          const { data: newBroker, error: brokerError } = await supabase
+          const { data: newBroker, error } = await supabase
             .from('brokers')
             .insert({
               full_name: input.broker_name,
@@ -389,24 +244,20 @@ export function useCreateCase() {
             })
             .select('id')
             .single();
-          
-          if (brokerError) throw brokerError;
+          if (error) throw error;
           brokerId = newBroker.id;
         }
       }
-      
+
       // 4. Generate case ID
-      const { data: caseIdData, error: seqError } = await supabase
-        .rpc('generate_case_id');
-      
+      const { data: caseIdData, error: seqError } = await supabase.rpc('generate_case_id');
       if (seqError) throw seqError;
-      const caseId = caseIdData;
-      
+
       // 5. Create case
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
         .insert({
-          case_id: caseId,
+          case_id: caseIdData,
           lot_id: lotId,
           client_id: clientId,
           broker_id: brokerId,
@@ -425,17 +276,14 @@ export function useCreateCase() {
         })
         .select()
         .single();
-      
+
       if (caseError) throw caseError;
-      
-      // 6. Update lot status to reserved
+
+      // 6. Reserve the lot
       if (lotId) {
-        await supabase
-          .from('lots')
-          .update({ status: 'Reserved' })
-          .eq('id', lotId);
+        await supabase.from('lots').update({ status: 'Reserved' }).eq('id', lotId);
       }
-      
+
       return newCase;
     },
     onSuccess: () => {
@@ -447,7 +295,7 @@ export function useCreateCase() {
 
 export function useUpdateCaseStatus() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({ caseId, status }: { caseId: string; status: CaseStatus }) => {
       const { data, error } = await supabase
@@ -456,7 +304,7 @@ export function useUpdateCaseStatus() {
         .eq('case_id', caseId)
         .select()
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -467,7 +315,6 @@ export function useUpdateCaseStatus() {
   });
 }
 
-// Dashboard stats
 export function useCaseStats() {
   return useQuery({
     queryKey: ['cases', 'stats'],
@@ -475,10 +322,10 @@ export function useCaseStats() {
       const { data: cases, error } = await supabase
         .from('cases')
         .select('status, sale_price_mxn');
-      
+
       if (error) throw error;
-      
-      const stats = {
+
+      return {
         total: cases?.length || 0,
         pending: cases?.filter(c => c.status === 'pending').length || 0,
         active: cases?.filter(c => c.status === 'active').length || 0,
@@ -486,11 +333,9 @@ export function useCaseStats() {
         cancelled: cases?.filter(c => c.status === 'cancelled').length || 0,
         totalSalesValue: cases?.reduce((sum, c) => sum + (c.sale_price_mxn || 0), 0) || 0,
       };
-      
-      return stats;
     },
   });
 }
 
-// Alias for backwards compatibility
+// Aliases for backwards compatibility
 export const useLotsByManzana = useAvailableLots;

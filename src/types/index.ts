@@ -1,5 +1,5 @@
 // MANA88 CMS Type Definitions
-// These types mirror the Supabase/PostgreSQL schema
+// Single source of truth — all hooks and pages import from here
 
 // ============================================
 // ENUMS
@@ -7,22 +7,24 @@
 
 export type UnitStatus = 'available' | 'reserved' | 'sold' | 'blocked';
 
-export type CaseStatus = 
-  | 'pending' 
-  | 'active' 
-  | 'contract_generated' 
-  | 'executed' 
-  | 'cancelled' 
+export type CaseStatus =
+  | 'pending'
+  | 'active'
+  | 'contract_generated'
+  | 'executed'
+  | 'cancelled'
   | 'on_hold';
 
-export type PaymentType = 
-  | 'reserva' 
-  | 'enganche' 
-  | 'mensualidad' 
-  | 'entrega' 
-  | 'balloon' 
-  | 'adjustment' 
+export type PaymentType =
+  | 'reserva'
+  | 'enganche'
+  | 'mensualidad'
+  | 'entrega'
+  | 'balloon'
+  | 'adjustment'
   | 'refund';
+
+export type PaymentChannel = 'transfer' | 'cash' | 'check' | 'credit_card' | 'other';
 
 export type ScheduleStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'waived';
 
@@ -34,113 +36,123 @@ export type StaffRole = 'admin' | 'finance' | 'legal' | 'broker' | 'viewer';
 // DATABASE MODELS
 // ============================================
 
-export interface Unit {
-  id: string;
+export interface LotRecord {
+  id: number;
+  lot_number: string;
+  lot: string; // alias for lot_number (mapped in hooks)
   manzana: string;
-  lot: string;
-  surface_m2: number | null;
-  list_price_mxn: number | null;
-  current_price_mxn: number | null;
-  status: UnitStatus;
-  property_type: string;
-  folder_path: string | null;
-  chepina_url: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
+  phase: number;
+  area_m2: number;
+  status: string;
+  full_retail_value_mxn: number | null;
+  sale_price_mxn: number | null;
 }
 
-export interface Client {
+export interface ClientRecord {
   id: string;
-  // Primary buyer
   full_name: string;
-  email_primary: string | null;
-  phone_primary: string | null;
-  // Secondary buyer
+  email: string | null;
+  phone: string | null;
   full_name_secondary: string | null;
-  email_secondary: string | null;
-  phone_secondary: string | null;
-  // Address
-  address_line1: string | null;
-  address_line2: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  postal_code: string | null;
-  // Documents
-  nationality: string | null;
-  id_document_url: string | null;
-  proof_of_address_url: string | null;
-  // Metadata
   is_llc: boolean;
   llc_name: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
-export interface Case {
+export interface BrokerRecord {
   id: string;
-  case_id: string; // MANA88-AK-0001 format
-  unit_id: string | null;
+  full_name: string;
+  agency: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface CaseRecord {
+  id: string;
+  case_id: string;
+  lot_id: number | null;
   client_id: string | null;
-  
-  // Pricing
+  broker_id: string | null;
   list_price_mxn: number | null;
   sale_price_mxn: number;
   discount_pct: number | null;
-  
-  // Payment Plan
   plan_name: string | null;
+  reservation_mxn: number | null;
   down_payment_pct: number | null;
   down_payment_mxn: number | null;
-  monthly_payment_count: number | null;
-  monthly_payment_amount: number | null;
+  monthly_count: number | null;
+  monthly_amount_mxn: number | null;
   final_payment_pct: number | null;
   final_payment_mxn: number | null;
-  
-  // Broker
-  broker_name: string | null;
-  broker_agency: string | null;
-  broker_email: string | null;
-  broker_phone: string | null;
   broker_commission_pct: number | null;
-  
-  // Status
+  broker_commission_mxn: number | null;
   status: CaseStatus;
-  
-  // Documents
   offer_doc_url: string | null;
   offer_pdf_url: string | null;
   contract_doc_url: string | null;
   contract_pdf_url: string | null;
   folder_url: string | null;
-  
-  // Timeline
+  offer_date: string | null;
   contract_drafted_at: string | null;
   sent_for_signature_at: string | null;
   executed_at: string | null;
   delivery_date: string | null;
-  
-  // Legal
   assigned_legal_owner: string | null;
-  
-  // Schedule
-  schedule_raw: ScheduleItem[] | null;
-  
-  // Legacy
-  dto_json: LegacyDTO | null;
-  dp_payments_json: unknown | null;
-  custom_payments_json: unknown | null;
-  
-  // Metadata
   notes: string | null;
-  version: number;
+  version: number | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface PaymentSchedule {
+export interface Payment {
+  id: string;
+  case_id: string;
+  client_id: string | null;
+  schedule_id: string | null;
+
+  // Amounts
+  payment_date: string;
+  payment_month: string | null;
+  amount_mxn: number;
+  amount_original: number | null;
+  currency_original: string | null;
+  fx_rate_used: number | null;
+
+  // Classification
+  payment_type: PaymentType;
+  applied_to_installment: number | null;
+
+  // Channel & reference
+  channel: string | null;
+  reference: string | null;
+  reference_number: string | null;
+  bank_name: string | null;
+
+  // Proof documents
+  mana_proof_url: string | null;
+  proof_url_mana: string | null;
+  client_proof_url: string | null;
+  proof_url_client: string | null;
+  receipt_number: string | null;
+  receipt_url: string | null;
+  receipt_pdf_url: string | null;
+
+  // Tracking
+  recorded_by: string | null;
+  entered_by: string | null;
+  source: string | null;
+  notes: string | null;
+
+  // Audit
+  audit_id: string | null;
+  is_verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentScheduleItem {
   id: string;
   case_id: string;
   schedule_index: number;
@@ -150,55 +162,11 @@ export interface PaymentSchedule {
   due_date: string;
   status: ScheduleStatus;
   paid_amount_mxn: number;
+  paid_date: string | null;
   paid_at: string | null;
-  date_calculated: boolean;
+  date_calculated: boolean | null;
   date_calculated_on: string | null;
   notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Payment {
-  id: string;
-  case_id: string;
-  client_id: string | null;
-  
-  // Payment Details
-  payment_date: string;
-  payment_month: string | null;
-  amount_mxn: number;
-  amount_original: number | null;
-  currency_original: string;
-  fx_rate_used: number | null;
-  
-  // Classification
-  payment_type: PaymentType;
-  applied_to_installment: number | null;
-  schedule_id: string | null;
-  
-  // Proof Documents
-  mana_proof_url: string | null;
-  client_proof_url: string | null;
-  receipt_pdf_url: string | null;
-  
-  // Transaction Details
-  channel: string | null;
-  reference_number: string | null;
-  bank_name: string | null;
-  
-  // Tracking
-  entered_by: string | null;
-  source: string | null;
-  
-  // Notes
-  notes: string | null;
-  
-  // Audit
-  audit_id: string;
-  is_verified: boolean;
-  verified_by: string | null;
-  verified_at: string | null;
-  
   created_at: string;
   updated_at: string;
 }
@@ -249,37 +217,35 @@ export interface AuditLog {
 }
 
 // ============================================
-// VIEW TYPES (Computed/Joined)
+// VIEW TYPES (Computed/Joined from queries)
 // ============================================
 
-export interface CaseSummary extends Case {
-  // From units
-  manzana: string | null;
-  lot: string | null;
-  surface_m2: number | null;
-  
-  // From clients
-  buyer_name: string | null;
-  buyer_name_2: string | null;
-  buyer_email: string | null;
-  
+export interface CaseSummary extends CaseRecord {
+  // Join objects (raw from Supabase)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  lot?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  broker?: any;
+
+  // Flattened convenience fields
+  manzana?: string | null;
+  lot_number?: string | null;
+  surface_m2?: number | null;
+  buyer_name?: string | null;
+  buyer_name_2?: string | null;
+  buyer_email?: string | null;
+  broker_name?: string | null;
+  broker_agency?: string | null;
+  broker_email?: string | null;
+  broker_phone?: string | null;
+
   // Calculated
   total_paid_mxn: number;
-  balance_mxn: number;
-  next_due_date: string | null;
-  overdue_amount_mxn: number | null;
-}
-
-export interface PaymentSummary {
-  case_id: string;
-  case_number: string;
-  sale_price_mxn: number;
-  down_paid_mxn: number;
-  monthly_paid_mxn: number;
-  total_paid_mxn: number;
-  balance_mxn: number;
-  payment_count: number;
-  last_payment_date: string | null;
+  balance_mxn?: number;
+  next_due_date?: string | null;
+  overdue_amount_mxn?: number | null;
 }
 
 // ============================================
@@ -345,49 +311,62 @@ export interface LegacyDTO {
 // API REQUEST/RESPONSE TYPES
 // ============================================
 
-export interface CreateCaseRequest {
-  unit_id?: string;
-  manzana: string;
-  lot: string;
-  
+export interface CreateCaseInput {
+  // Property
+  lot_id?: number;
+  manzana?: string;
+  lot?: string;
+
   // Client
   buyer_name: string;
   buyer_name_2?: string;
   buyer_email?: string;
   buyer_phone?: string;
-  
+
   // Pricing
   list_price_mxn?: number;
   sale_price_mxn: number;
-  
+
   // Plan
   plan_name: string;
   down_payment_pct?: number;
   down_payment_mxn?: number;
-  
+  monthly_count?: number;
+  monthly_amount_mxn?: number;
+  final_payment_pct?: number;
+  final_payment_mxn?: number;
+
   // Broker
   broker_name?: string;
   broker_agency?: string;
   broker_email?: string;
   broker_phone?: string;
-  
+  broker_commission_pct?: number;
+
   // Schedule
-  schedule: ScheduleItem[];
-  
+  schedule?: ScheduleItem[];
+
   notes?: string;
 }
 
-export interface RecordPaymentRequest {
+export interface RecordPaymentInput {
   case_id: string;
+  schedule_id?: string;
   payment_date: string;
   amount_mxn: number;
   payment_type: PaymentType;
-  applied_to_installment?: number;
   channel?: string;
-  reference_number?: string;
+  reference?: string;
+  proof_url_client?: string;
   notes?: string;
-  mana_proof_url?: string;
-  client_proof_url?: string;
+}
+
+export interface GenerateScheduleInput {
+  case_id: string;
+  reservation: { amount: number; date: string };
+  down_payment?: { amount: number; date: string };
+  monthly?: { amount: number; count: number; start_date: string };
+  final?: { amount: number; date: string };
 }
 
 export interface FinanceReportFilters {
@@ -396,60 +375,6 @@ export interface FinanceReportFilters {
   status?: CaseStatus;
   manzana?: string;
   broker?: string;
-}
-
-export interface FinanceReportRow {
-  case_id: string;
-  case_number: string;
-  buyer_name: string;
-  manzana: string;
-  lot: string;
-  plan_name: string;
-  sale_price_mxn: number;
-  total_paid_mxn: number;
-  balance_mxn: number;
-  next_due_date: string | null;
-  overdue_amount_mxn: number;
-  status: CaseStatus;
-}
-
-// ============================================
-// UI/FORM TYPES
-// ============================================
-
-export interface CaseFormData {
-  manzana: string;
-  lot: string;
-  buyer1Name: string;
-  buyer2Name?: string;
-  email1?: string;
-  email2?: string;
-  phone1?: string;
-  phone2?: string;
-  listPrice?: number;
-  salePrice: number;
-  planName: string;
-  downPaymentPct?: number;
-  downPaymentMxn?: number;
-  monthlyPayments?: number;
-  monthlyAmount?: number;
-  brokerName?: string;
-  brokerAgency?: string;
-  brokerEmail?: string;
-  brokerPhone?: string;
-  notes?: string;
-}
-
-export interface PaymentFormData {
-  caseId: string;
-  paymentDate: Date;
-  amountMxn: number;
-  paymentType: PaymentType;
-  appliedToInstallment?: number;
-  channel?: string;
-  referenceNumber?: string;
-  notes?: string;
-  proofFile?: File;
 }
 
 // ============================================

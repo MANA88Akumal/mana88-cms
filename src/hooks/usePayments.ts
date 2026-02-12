@@ -2,6 +2,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { caseKeys } from './useCases';
+import type {
+  Payment,
+  PaymentType,
+  PaymentScheduleItem,
+  RecordPaymentInput,
+  GenerateScheduleInput,
+} from '../types';
+
+// Re-export types for backwards compatibility
+export type { Payment, PaymentType, PaymentScheduleItem };
+export type { ScheduleStatus, PaymentChannel } from '../types';
 
 // Query keys
 export const paymentKeys = {
@@ -10,63 +21,6 @@ export const paymentKeys = {
   schedule: (caseId: string) => [...paymentKeys.all, 'schedule', caseId] as const,
   recent: () => [...paymentKeys.all, 'recent'] as const,
 };
-
-// Types
-export type PaymentType = 'reserva' | 'enganche' | 'mensualidad' | 'entrega' | 'balloon' | 'adjustment' | 'refund';
-export type PaymentChannel = 'transfer' | 'cash' | 'check' | 'credit_card' | 'other';
-export type ScheduleStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'waived';
-
-export interface Payment {
-  id: string;
-  case_id: string;
-  client_id: string | null;
-  schedule_id: string | null;
-  payment_date: string;
-  payment_month: string | null;
-  amount_mxn: number;
-  amount_original: number | null;
-  currency_original: string | null;
-  fx_rate_used: number | null;
-  payment_type: PaymentType;
-  applied_to_installment: number | null;
-  channel: string | null;
-  reference: string | null;
-  reference_number: string | null;
-  bank_name: string | null;
-  mana_proof_url: string | null;
-  client_proof_url: string | null;
-  proof_url_mana: string | null;
-  proof_url_client: string | null;
-  receipt_number: string | null;
-  receipt_url: string | null;
-  receipt_pdf_url: string | null;
-  recorded_by: string | null;
-  entered_by: string | null;
-  source: string | null;
-  notes: string | null;
-  audit_id: string | null;
-  is_verified: boolean;
-  verified_by: string | null;
-  verified_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PaymentScheduleItem {
-  id: string;
-  case_id: string;
-  schedule_index: number;
-  payment_type: PaymentType;
-  label: string | null;
-  amount_mxn: number;
-  due_date: string;
-  status: ScheduleStatus;
-  paid_amount_mxn: number;
-  paid_date: string | null;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
 // ============================================
 // QUERIES
@@ -81,7 +35,7 @@ export function usePayments(caseUuid: string) {
         .select('*')
         .eq('case_id', caseUuid)
         .order('payment_date', { ascending: false });
-      
+
       if (error) throw error;
       return data as Payment[];
     },
@@ -98,7 +52,7 @@ export function usePaymentSchedule(caseUuid: string) {
         .select('*')
         .eq('case_id', caseUuid)
         .order('schedule_index');
-      
+
       if (error) throw error;
       return data as PaymentScheduleItem[];
     },
@@ -118,14 +72,13 @@ export function useRecentPayments(limit = 10) {
         `)
         .order('created_at', { ascending: false })
         .limit(limit);
-      
+
       if (error) throw error;
       return data;
     },
   });
 }
 
-// Get total collected across all cases
 export function usePaymentStats() {
   return useQuery({
     queryKey: ['payments', 'stats'],
@@ -133,17 +86,14 @@ export function usePaymentStats() {
       const { data, error } = await supabase
         .from('cms_payments')
         .select('amount_mxn, payment_type');
-      
+
       if (error) throw error;
-      
+
       const total = data?.reduce((sum, p) => {
-        // Don't count refunds
-        if (p.payment_type === 'refund') {
-          return sum - p.amount_mxn;
-        }
+        if (p.payment_type === 'refund') return sum - p.amount_mxn;
         return sum + p.amount_mxn;
       }, 0) || 0;
-      
+
       return {
         totalCollected: total,
         paymentCount: data?.length || 0,
@@ -152,13 +102,12 @@ export function usePaymentStats() {
   });
 }
 
-// Get overdue payments
 export function useOverduePayments() {
   return useQuery({
     queryKey: ['payments', 'overdue'],
     queryFn: async () => {
       const today = new Date().toISOString().split('T')[0];
-      
+
       const { data, error } = await supabase
         .from('payment_schedule')
         .select(`
@@ -168,7 +117,7 @@ export function useOverduePayments() {
         .in('status', ['pending', 'partial'])
         .lt('due_date', today)
         .order('due_date');
-      
+
       if (error) throw error;
       return data;
     },
@@ -179,24 +128,11 @@ export function useOverduePayments() {
 // MUTATIONS
 // ============================================
 
-interface RecordPaymentInput {
-  case_id: string;
-  schedule_id?: string;
-  payment_date: string;
-  amount_mxn: number;
-  payment_type: PaymentType;
-  channel?: string;
-  reference?: string;
-  proof_url_client?: string;
-  notes?: string;
-}
-
 export function useRecordPayment() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (input: RecordPaymentInput) => {
-      // 1. Insert payment record
       const { data: payment, error: paymentError } = await supabase
         .from('cms_payments')
         .insert({
@@ -212,22 +148,20 @@ export function useRecordPayment() {
         })
         .select()
         .single();
-      
+
       if (paymentError) throw paymentError;
-      
-      // 2. If linked to schedule, update schedule status
+
       if (input.schedule_id) {
-        // Get current schedule item
         const { data: scheduleItem } = await supabase
           .from('payment_schedule')
           .select('*')
           .eq('id', input.schedule_id)
           .single();
-        
+
         if (scheduleItem) {
           const newPaidAmount = (scheduleItem.paid_amount_mxn || 0) + input.amount_mxn;
           const isPaid = newPaidAmount >= scheduleItem.amount_mxn;
-          
+
           await supabase
             .from('payment_schedule')
             .update({
@@ -238,7 +172,7 @@ export function useRecordPayment() {
             .eq('id', input.schedule_id);
         }
       }
-      
+
       return payment;
     },
     onSuccess: (_, { case_id }) => {
@@ -250,23 +184,14 @@ export function useRecordPayment() {
   });
 }
 
-interface GenerateScheduleInput {
-  case_id: string;
-  reservation: { amount: number; date: string };
-  down_payment?: { amount: number; date: string };
-  monthly?: { amount: number; count: number; start_date: string };
-  final?: { amount: number; date: string };
-}
-
 export function useGenerateSchedule() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async (input: GenerateScheduleInput) => {
       const scheduleItems: Partial<PaymentScheduleItem>[] = [];
       let index = 0;
-      
-      // Reservation
+
       scheduleItems.push({
         case_id: input.case_id,
         schedule_index: index++,
@@ -277,8 +202,7 @@ export function useGenerateSchedule() {
         status: 'pending',
         paid_amount_mxn: 0,
       });
-      
-      // Down payment (Enganche)
+
       if (input.down_payment) {
         scheduleItems.push({
           case_id: input.case_id,
@@ -291,14 +215,13 @@ export function useGenerateSchedule() {
           paid_amount_mxn: 0,
         });
       }
-      
-      // Monthly payments
+
       if (input.monthly && input.monthly.count > 0) {
         const startDate = new Date(input.monthly.start_date);
         for (let i = 0; i < input.monthly.count; i++) {
           const dueDate = new Date(startDate);
           dueDate.setMonth(dueDate.getMonth() + i);
-          
+
           scheduleItems.push({
             case_id: input.case_id,
             schedule_index: index++,
@@ -311,8 +234,7 @@ export function useGenerateSchedule() {
           });
         }
       }
-      
-      // Final payment (Entrega)
+
       if (input.final) {
         scheduleItems.push({
           case_id: input.case_id,
@@ -325,13 +247,12 @@ export function useGenerateSchedule() {
           paid_amount_mxn: 0,
         });
       }
-      
-      // Insert all schedule items
+
       const { data, error } = await supabase
         .from('payment_schedule')
         .insert(scheduleItems)
         .select();
-      
+
       if (error) throw error;
       return data;
     },
@@ -342,8 +263,7 @@ export function useGenerateSchedule() {
   });
 }
 
-// Helper function to calculate payment totals
-// Accepts just payments array, or payments + optional schedule
+// Helper: calculate payment totals from payments array
 export function calculatePaymentTotals(payments: Payment[], schedule?: PaymentScheduleItem[]) {
   const totalScheduled = schedule?.reduce((sum, item) => sum + item.amount_mxn, 0) || 0;
   const totalPaid = payments
@@ -354,7 +274,7 @@ export function calculatePaymentTotals(payments: Payment[], schedule?: PaymentSc
     .reduce((sum, p) => sum + p.amount_mxn, 0);
   const balance = totalScheduled - totalPaid + totalRefunded;
   const percentPaid = totalScheduled > 0 ? (totalPaid / totalScheduled) * 100 : 0;
-  
+
   return {
     totalScheduled,
     totalPaid,
