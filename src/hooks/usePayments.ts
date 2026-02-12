@@ -19,18 +19,35 @@ export type ScheduleStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'waive
 export interface Payment {
   id: string;
   case_id: string;
+  client_id: string | null;
   schedule_id: string | null;
   payment_date: string;
+  payment_month: string | null;
   amount_mxn: number;
+  amount_original: number | null;
+  currency_original: string | null;
+  fx_rate_used: number | null;
   payment_type: PaymentType;
-  channel: PaymentChannel | null;
+  applied_to_installment: number | null;
+  channel: string | null;
   reference: string | null;
+  reference_number: string | null;
+  bank_name: string | null;
+  mana_proof_url: string | null;
+  client_proof_url: string | null;
   proof_url_mana: string | null;
   proof_url_client: string | null;
-  recorded_by: string | null;
   receipt_number: string | null;
   receipt_url: string | null;
+  receipt_pdf_url: string | null;
+  recorded_by: string | null;
+  entered_by: string | null;
+  source: string | null;
   notes: string | null;
+  audit_id: string | null;
+  is_verified: boolean;
+  verified_by: string | null;
+  verified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -168,7 +185,7 @@ interface RecordPaymentInput {
   payment_date: string;
   amount_mxn: number;
   payment_type: PaymentType;
-  channel?: PaymentChannel;
+  channel?: string;
   reference?: string;
   proof_url_client?: string;
   notes?: string;
@@ -326,8 +343,9 @@ export function useGenerateSchedule() {
 }
 
 // Helper function to calculate payment totals
-export function calculatePaymentTotals(schedule: PaymentScheduleItem[], payments: Payment[]) {
-  const totalScheduled = schedule.reduce((sum, item) => sum + item.amount_mxn, 0);
+// Accepts just payments array, or payments + optional schedule
+export function calculatePaymentTotals(payments: Payment[], schedule?: PaymentScheduleItem[]) {
+  const totalScheduled = schedule?.reduce((sum, item) => sum + item.amount_mxn, 0) || 0;
   const totalPaid = payments
     .filter(p => p.payment_type !== 'refund')
     .reduce((sum, p) => sum + p.amount_mxn, 0);

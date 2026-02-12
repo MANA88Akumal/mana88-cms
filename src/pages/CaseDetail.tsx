@@ -1,10 +1,10 @@
 // Case Detail Page - Full case view with tabs
 import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useCase, useUpdateCaseStatus } from '../hooks/useCases';
 import { usePaymentsByCase, usePaymentSchedule, calculatePaymentTotals } from '../hooks/usePayments';
-import { formatMXN, formatDate, formatRelativeTime, STATUS_LABELS, STATUS_COLORS, PAYMENT_TYPE_LABELS, SCHEDULE_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '../lib/utils';
-import type { CaseStatus, PaymentType, ScheduleStatus } from '../types';
+import { formatMXN, formatDate, STATUS_LABELS, STATUS_COLORS, PAYMENT_TYPE_LABELS, SCHEDULE_STATUS_LABELS, PAYMENT_STATUS_COLORS } from '../lib/utils';
+import type { CaseStatus, ScheduleStatus } from '../types';
 
 // Status Badge
 function StatusBadge({ status, size = 'sm' }: { status: CaseStatus | ScheduleStatus; size?: 'sm' | 'lg' }) {
@@ -45,7 +45,6 @@ type TabKey = 'overview' | 'schedule' | 'payments' | 'documents';
 
 export function CaseDetail() {
   const { caseId } = useParams<{ caseId: string }>();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
 
   const { data: caseData, isLoading, error } = useCase(caseId!);
@@ -170,13 +169,13 @@ export function CaseDetail() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`py-3 text-sm font-medium border-b-2 transition-colors capitalize ${
                 activeTab === tab
                   ? 'border-emerald-500 text-emerald-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab}
             </button>
           ))}
         </nav>
@@ -185,37 +184,27 @@ export function CaseDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Buyer Info */}
-          <InfoCard title="Buyer Information">
-            <InfoRow label="Primary Buyer" value={caseData.buyer_name} />
-            <InfoRow label="Secondary Buyer" value={caseData.buyer_name_2} />
-            <InfoRow label="Email" value={caseData.buyer_email} />
-          </InfoCard>
-
-          {/* Property Info */}
-          <InfoCard title="Property Details">
+          <InfoCard title="Property">
             <InfoRow label="Manzana" value={caseData.manzana} />
             <InfoRow label="Lot" value={caseData.lot} />
             <InfoRow label="Surface" value={caseData.surface_m2 ? `${caseData.surface_m2} m²` : null} />
-            <InfoRow label="List Price" value={formatMXN(caseData.list_price_mxn)} />
+          </InfoCard>
+          <InfoCard title="Buyer">
+            <InfoRow label="Primary" value={caseData.buyer_name} />
+            <InfoRow label="Secondary" value={caseData.buyer_name_2} />
+            <InfoRow label="Email" value={caseData.buyer_email} />
+          </InfoCard>
+          <InfoCard title="Pricing">
+            <InfoRow label="List Price" value={caseData.list_price_mxn ? formatMXN(caseData.list_price_mxn) : null} />
             <InfoRow label="Sale Price" value={formatMXN(caseData.sale_price_mxn)} />
+            <InfoRow label="Discount" value={caseData.discount_pct ? `${caseData.discount_pct}%` : null} />
+            <InfoRow label="Plan" value={caseData.plan_name} />
           </InfoCard>
-
-          {/* Payment Plan */}
-          <InfoCard title="Payment Plan">
-            <InfoRow label="Plan Name" value={caseData.plan_name} />
-            <InfoRow label="Down Payment" value={caseData.down_payment_mxn ? formatMXN(caseData.down_payment_mxn) : null} />
-            <InfoRow label="Monthly Payments" value={caseData.monthly_payment_count} />
-            <InfoRow label="Monthly Amount" value={caseData.monthly_payment_amount ? formatMXN(caseData.monthly_payment_amount) : null} />
-            <InfoRow label="Final Payment" value={caseData.final_payment_mxn ? formatMXN(caseData.final_payment_mxn) : null} />
-          </InfoCard>
-
-          {/* Broker Info */}
           <InfoCard title="Broker">
             <InfoRow label="Name" value={caseData.broker_name} />
             <InfoRow label="Agency" value={caseData.broker_agency} />
             <InfoRow label="Email" value={caseData.broker_email} />
-            <InfoRow label="Phone" value={caseData.broker_phone} />
+            <InfoRow label="Commission" value={caseData.broker_commission_pct ? `${caseData.broker_commission_pct}%` : null} />
           </InfoCard>
         </div>
       )}
@@ -284,7 +273,7 @@ export function CaseDetail() {
                       {formatMXN(payment.amount_mxn)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">{payment.channel || '—'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 font-mono">{payment.reference_number || '—'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 font-mono">{payment.reference_number || payment.reference || '—'}</td>
                     <td className="px-4 py-3">
                       {payment.is_verified ? (
                         <span className="inline-flex items-center gap-1 text-green-600">
@@ -298,9 +287,9 @@ export function CaseDetail() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {payment.mana_proof_url ? (
+                      {(payment.mana_proof_url || payment.proof_url_mana) ? (
                         <a
-                          href={payment.mana_proof_url}
+                          href={payment.mana_proof_url || payment.proof_url_mana || '#'}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-emerald-600 hover:text-emerald-700"

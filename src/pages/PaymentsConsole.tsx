@@ -67,7 +67,6 @@ function PaymentForm({
     referenceNumber: '',
     notes: '',
   });
-  const [proofFile, setProofFile] = useState<File | null>(null);
 
   // Find next unpaid schedule item
   const nextUnpaid = useMemo(() => {
@@ -104,7 +103,6 @@ function PaymentForm({
         referenceNumber: '',
         notes: '',
       });
-      setProofFile(null);
       onSuccess();
     } catch (err) {
       console.error('Failed to record payment:', err);
@@ -202,7 +200,6 @@ function PaymentForm({
         <input
           type="file"
           accept="image/*,.pdf"
-          onChange={(e) => setProofFile(e.target.files?.[0] || null)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
         />
       </div>

@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCases } from '../hooks/useCases';
-import { formatMXN, formatDate, formatRelativeTime, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
-import type { CaseSummary, CaseStatus } from '../types';
+import { formatMXN, formatRelativeTime, STATUS_LABELS, STATUS_COLORS } from '../lib/utils';
+import type { CaseSummary } from '../types';
 
 // Approval Card
 function ApprovalCard({ 

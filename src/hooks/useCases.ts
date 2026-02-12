@@ -48,6 +48,7 @@ export interface CaseRecord {
 export interface LotRecord {
   id: number;
   lot_number: string;
+  lot: string; // alias for lot_number
   manzana: string;
   phase: number;
   area_m2: number;
@@ -140,12 +141,15 @@ export function useCases(options: UseCasesOptions = {}) {
       if (error) throw error;
       
       // Filter by manzana if provided (need to filter after join)
-      let filtered = data || [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let filtered = data || [] as any[];
       if (manzana) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         filtered = filtered.filter((c: any) => c.lot?.manzana === manzana);
       }
       if (search) {
         const searchLower = search.toLowerCase();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         filtered = filtered.filter((c: any) => 
           c.case_id?.toLowerCase().includes(searchLower) ||
           c.client?.full_name?.toLowerCase().includes(searchLower) ||
@@ -217,7 +221,8 @@ export function useAvailableLots(manzana?: string) {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data as LotRecord[];
+      // Map lot_number to lot for backwards compatibility
+      return (data || []).map(d => ({ ...d, lot: d.lot_number })) as LotRecord[];
     },
   });
 }
@@ -262,31 +267,47 @@ export function usePendingApprovalsCount() {
 // ============================================
 
 interface CreateCaseInput {
-  lot_id: number;
-  client: {
-    full_name: string;
-    email?: string;
-    phone?: string;
-    full_name_secondary?: string;
-    is_llc?: boolean;
-    llc_name?: string;
-  };
-  broker?: {
-    full_name: string;
-    agency?: string;
-    email?: string;
-    phone?: string;
-  };
+  // Property - can pass lot_id directly or manzana+lot strings
+  lot_id?: number;
+  manzana?: string;
+  lot?: string;
+  
+  // Client - flat fields
+  buyer_name: string;
+  buyer_name_2?: string;
+  buyer_email?: string;
+  buyer_phone?: string;
+  
+  // Pricing
+  list_price_mxn?: number;
   sale_price_mxn: number;
+  
+  // Plan
   plan_name: string;
-  reservation_mxn?: number;
   down_payment_pct?: number;
   down_payment_mxn?: number;
   monthly_count?: number;
   monthly_amount_mxn?: number;
   final_payment_pct?: number;
   final_payment_mxn?: number;
+  
+  // Broker
+  broker_name?: string;
+  broker_agency?: string;
+  broker_email?: string;
+  broker_phone?: string;
   broker_commission_pct?: number;
+  
+  // Schedule
+  schedule?: Array<{
+    type: string;
+    label: string;
+    amount: number;
+    date: string;
+    dateCalculated?: boolean;
+    dateCalculatedOn?: string;
+  }>;
+  
   notes?: string;
 }
 
@@ -295,42 +316,77 @@ export function useCreateCase() {
   
   return useMutation({
     mutationFn: async (input: CreateCaseInput) => {
-      // 1. Create or find client
-      let clientId: string;
-      const { data: existingClient } = await supabase
-        .from('clients')
-        .select('id')
-        .eq('email', input.client.email)
-        .single();
-      
-      if (existingClient) {
-        clientId = existingClient.id;
-      } else {
-        const { data: newClient, error: clientError } = await supabase
-          .from('clients')
-          .insert(input.client)
+      // 1. Resolve lot_id
+      let lotId = input.lot_id;
+      if (!lotId && input.manzana && input.lot) {
+        const { data: lotData } = await supabase
+          .from('lots')
           .select('id')
+          .eq('manzana', input.manzana)
+          .eq('lot_number', input.lot)
           .single();
         
-        if (clientError) throw clientError;
-        clientId = newClient.id;
+        if (lotData) {
+          lotId = lotData.id;
+        }
       }
       
-      // 2. Create or find broker if provided
-      let brokerId: string | null = null;
-      if (input.broker?.full_name) {
-        const { data: existingBroker } = await supabase
-          .from('brokers')
-          .select('id')
-          .eq('email', input.broker.email)
-          .single();
+      // 2. Create or find client
+      let clientId: string | null = null;
+      if (input.buyer_name) {
+        if (input.buyer_email) {
+          const { data: existingClient } = await supabase
+            .from('clients')
+            .select('id')
+            .eq('email', input.buyer_email)
+            .single();
+          
+          if (existingClient) {
+            clientId = existingClient.id;
+          }
+        }
         
-        if (existingBroker) {
-          brokerId = existingBroker.id;
-        } else {
+        if (!clientId) {
+          const { data: newClient, error: clientError } = await supabase
+            .from('clients')
+            .insert({
+              full_name: input.buyer_name,
+              email: input.buyer_email || null,
+              phone: input.buyer_phone || null,
+              full_name_secondary: input.buyer_name_2 || null,
+            })
+            .select('id')
+            .single();
+          
+          if (clientError) throw clientError;
+          clientId = newClient.id;
+        }
+      }
+      
+      // 3. Create or find broker if provided
+      let brokerId: string | null = null;
+      if (input.broker_name) {
+        if (input.broker_email) {
+          const { data: existingBroker } = await supabase
+            .from('brokers')
+            .select('id')
+            .eq('email', input.broker_email)
+            .single();
+          
+          if (existingBroker) {
+            brokerId = existingBroker.id;
+          }
+        }
+        
+        if (!brokerId) {
           const { data: newBroker, error: brokerError } = await supabase
             .from('brokers')
-            .insert(input.broker)
+            .insert({
+              full_name: input.broker_name,
+              agency: input.broker_agency || null,
+              email: input.broker_email || null,
+              phone: input.broker_phone || null,
+            })
             .select('id')
             .single();
           
@@ -339,24 +395,24 @@ export function useCreateCase() {
         }
       }
       
-      // 3. Generate case ID
+      // 4. Generate case ID
       const { data: caseIdData, error: seqError } = await supabase
         .rpc('generate_case_id');
       
       if (seqError) throw seqError;
       const caseId = caseIdData;
       
-      // 4. Create case
+      // 5. Create case
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
         .insert({
           case_id: caseId,
-          lot_id: input.lot_id,
+          lot_id: lotId,
           client_id: clientId,
           broker_id: brokerId,
+          list_price_mxn: input.list_price_mxn,
           sale_price_mxn: input.sale_price_mxn,
           plan_name: input.plan_name,
-          reservation_mxn: input.reservation_mxn || 50000,
           down_payment_pct: input.down_payment_pct,
           down_payment_mxn: input.down_payment_mxn,
           monthly_count: input.monthly_count,
@@ -372,11 +428,13 @@ export function useCreateCase() {
       
       if (caseError) throw caseError;
       
-      // 5. Update lot status to reserved
-      await supabase
-        .from('lots')
-        .update({ status: 'Reserved' })
-        .eq('id', input.lot_id);
+      // 6. Update lot status to reserved
+      if (lotId) {
+        await supabase
+          .from('lots')
+          .update({ status: 'Reserved' })
+          .eq('id', lotId);
+      }
       
       return newCase;
     },
