@@ -33,7 +33,4 @@ jobs:
 
       - name: Deploy to Lightsail
         run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/id_rsa" \
-            dist/ \
-            ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/opt/bitnami/apache/htdocs/cms/
+          scp -i ~/.ssh/id_rsa -r dist/* ${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:/opt/bitnami/apache/htdocs/cms/
